@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ════════════════════════════════
+    // دوال مساعدة
+    // ════════════════════════════════
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myRole() {
+      return isAuth() ? userDoc().data.role : '';
+    }
+
+    function isAdmin() {
+      return myRole() == 'admin';
+    }
+
+    function isStaff() {
+      return myRole() in ['admin', 'staff'];
+    }
+
+    function isViewer() {
+      return myRole() in ['admin', 'staff', 'viewer'];
+    }
+
+    // ════════════════════════════════
+    // الأقسام الثلاثة — inventory
+    // ════════════════════════════════
+    match /departments/{dept}/inventory/{itemId} {
+      allow read:   if isAuth() && isViewer();
+      allow create: if isAuth() && isStaff();
+      allow update: if isAuth() && isStaff();
+      allow delete: if isAuth() && isAdmin();
+
+      // دفعات كل مادة
+      match /batches/{batchId} {
+        allow read:   if isAuth() && isViewer();
+        allow create: if isAuth() && isStaff();
+        allow update: if isAuth() && isStaff();
+        allow delete: if isAuth() && isAdmin();
+      }
+    }
+
+    // ════════════════════════════════
+    // الأقسام الثلاثة — movements
+    // ════════════════════════════════
+    match /departments/{dept}/movements/{movId} {
+      allow read:             if isAuth() && isViewer();
+      allow create:           if isAuth() && isStaff();
+      // لا تعديل ولا حذف للحركات — حماية سجل المحاسبة
+      allow update, delete:   if isAuth() && isAdmin();
+    }
+
+    // ════════════════════════════════
+    // المستخدمون
+    // ════════════════════════════════
+    match /users/{uid} {
+      // كل مستخدم يقرأ بياناته + المسؤول يقرأ الكل
+      allow read:   if isAuth() && (request.auth.uid == uid || isAdmin());
+      // المستخدم يعدّل بياناته — المسؤول يعدّل الكل
+      allow update: if isAuth() && (request.auth.uid == uid || isAdmin());
+      // إنشاء: فقط عند التسجيل الأول (أول مستخدم)
+      allow create: if isAuth() && request.auth.uid == uid;
+      // حذف: مسؤول فقط
+      allow delete: if isAuth() && isAdmin();
+    }
+
+    // ════════════════════════════════
+    // الإعدادات
+    // ════════════════════════════════
+    match /settings/{doc} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    // ════════════════════════════════
+    // سجل التدقيق — Audit Log
+    // ════════════════════════════════
+    match /auditLog/{logId} {
+      allow read:             if isAuth() && isAdmin();
+      allow create:           if isAuth(); // كل مستخدم يسجّل
+      // لا تعديل ولا حذف أبداً — حماية سجل المساءلة
+      allow update, delete:   if false;
+    }
+
+    // ════════════════════════════════
+    // الأرشيف السنوي
+    // ════════════════════════════════
+    match /archive/{year} {
+      allow read:  if isAuth() && isAdmin();
+      allow write: if isAuth() && isAdmin();
+
+      match /{dept}/{doc} {
+        allow read:  if isAuth() && isAdmin();
+        allow write: if isAuth() && isAdmin();
+      }
+    }
+
+    // ════════════════════════════════
+    // تقديرات الاحتياج السنوي
+    // ════════════════════════════════
+    match /yearlyNeeds/{year} {
+      allow read:  if isAuth() && isViewer();
+      allow write: if isAuth() && isStaff();
+    }
+
+    // ════════════════════════════════
+    // رفض كل شيء آخر
+    // ════════════════════════════════
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
