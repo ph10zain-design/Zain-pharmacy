@@ -1072,7 +1072,12 @@ ul{list-style:none}
         <button class="rep-btn" onclick="rptSlow()"><span class="ri">🐢</span><div class="rinfo"><div class="rtitle">المواد بطيئة الحركة</div><div class="rsub">لم تُصرف خلال المدة المحددة</div></div><span class="rarrow">‹</span></button>
         <button class="rep-btn" onclick="openNeedModal()"><span class="ri">📅</span><div class="rinfo"><div class="rtitle">تقدير الاحتياج السنوي</div><div class="rsub">مع الموسمية</div></div><span class="rarrow">‹</span></button>
         <button class="rep-btn" onclick="openMovLog()"><span class="ri">📜</span><div class="rinfo"><div class="rtitle">سجل الحركة</div><div class="rsub">وارد وصادر مع فلاتر</div></div><span class="rarrow">‹</span></button>
+        <button class="rep-btn" onclick="rptReturns()"><span class="ri">↩️</span><div class="rinfo"><div class="rtitle">تقرير المرتجعات</div><div class="rsub">مرتجعات الصيدليات والأقسام</div></div><span class="rarrow">‹</span></button>
         <button class="rep-btn" onclick="rptTransfers()"><span class="ri">🔄</span><div class="rinfo"><div class="rtitle">تقرير المناقلات</div><div class="rsub">للمحاسبة</div></div><span class="rarrow">‹</span></button>
+      </div>
+      <div class="report-grp">
+        <div class="report-grp-title">الأرصدة الافتتاحية</div>
+        <button class="rep-btn" onclick="rptOpeningBalances()"><span class="ri">🏁</span><div class="rinfo"><div class="rtitle">تقرير الأرصدة الافتتاحية</div><div class="rsub">المواد التي أُدخل رصيدها والتي لم تُدخَل</div></div><span class="rarrow">‹</span></button>
       </div>
       <div class="report-grp">
         <div class="report-grp-title">الاستيراد والتصدير</div>
@@ -1227,6 +1232,124 @@ ul{list-style:none}
   </div>
 </div>
 
+<!-- OPENING BALANCE -->
+<div class="modal-ov" id="m-opening">
+  <div class="modal-sheet" style="max-height:96vh">
+    <div class="modal-hdr">
+      <span class="modal-hdr-title">🏁 رصيد افتتاحي — <span id="ob-name"></span></span>
+      <span class="modal-close" onclick="closeM('m-opening')">✕</span>
+    </div>
+    <div class="modal-body">
+
+      <!-- تحذير وجود رصيد افتتاحي مسبق -->
+      <div id="ob-has-opening" style="display:none;background:rgba(245,158,11,.1);border:1.5px solid rgba(245,158,11,.4);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:900;color:var(--warning)">⚠️ هذه المادة لها رصيد افتتاحي مسجل مسبقاً</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">إضافة رصيد جديد ستُضاف فوق الرصيد الحالي. إذا أردت تصحيح الكمية استخدم الجرد الدوري بدلاً من ذلك.</div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--warning)">
+          <input type="checkbox" id="ob-confirm-dup"> أقر بالمتابعة
+        </label>
+      </div>
+
+      <!-- تاريخ الرصيد -->
+      <div class="ff" style="margin-bottom:12px">
+        <label>تاريخ الرصيد الافتتاحي *</label>
+        <input type="date" id="ob-date">
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">عادةً تاريخ بدء العمل بالنظام</div>
+      </div>
+
+      <!-- الدفعات -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:900;color:var(--text)">📦 الدفعات</div>
+        <button class="btn btn-outline btn-sm" onclick="addObBatch()">＋ دفعة جديدة</button>
+      </div>
+      <div id="ob-batches-list"></div>
+
+      <!-- الإجمالي -->
+      <div style="background:var(--surface2);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--muted);font-weight:700">إجمالي الكمية</span>
+        <span id="ob-total" style="font-size:20px;font-weight:900;color:var(--primary)">0</span>
+      </div>
+
+      <div style="background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.15);border-radius:var(--radius-sm);padding:10px 14px;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
+        💡 الرصيد الافتتاحي يُسجَّل كحركة وارد خاصة من نوع <strong style="color:var(--primary)">"رصيد افتتاحي"</strong> ولا يُدرج في إحصائيات الوارد العادية
+      </div>
+
+      <div class="form-actions" style="margin-top:14px">
+        <button class="btn btn-cancel" onclick="closeM('m-opening')">إلغاء</button>
+        <button class="btn btn-save" id="ob-save-btn" onclick="saveOpening()">🏁 تأكيد الرصيد الافتتاحي</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MOVEMENT RETURN -->
+<div class="modal-ov" id="m-return">
+  <div class="modal-sheet">
+    <div class="modal-hdr">
+      <span class="modal-hdr-title">↩️ استرجاع — <span id="ret-name"></span></span>
+      <span class="modal-close" onclick="closeM('m-return')">✕</span>
+    </div>
+    <div class="modal-body" id="m-return-body">
+
+      <!-- نوع الاسترجاع -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.4px">نوع الاسترجاع *</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;background:rgba(56,189,248,.08);border:1.5px solid rgba(56,189,248,.3);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer">
+            <input type="radio" name="ret-dir" id="ret-dir-in" value="in" checked onchange="onRetDirChange()" style="accent-color:var(--primary)">
+            <div><div style="font-size:12px;font-weight:900;color:var(--primary)">📥 جهة ← مخزن</div><div style="font-size:10px;color:var(--muted)">الصيدليات أو التمريض ترجع</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;background:rgba(99,102,241,.08);border:1.5px solid rgba(99,102,241,.3);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer">
+            <input type="radio" name="ret-dir" id="ret-dir-out" value="out" onchange="onRetDirChange()" style="accent-color:#818cf8">
+            <div><div style="font-size:12px;font-weight:900;color:#818cf8">📤 مخزن ← صيدلة</div><div style="font-size:10px;color:var(--muted)">المخزن يرجع لقسم الصيدلة</div></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- حالة المرتجع -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.4px">حالة المرتجع *</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;background:var(--success-glow);border:1.5px solid rgba(34,197,94,.3);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer">
+            <input type="radio" name="ret-cond" id="ret-good" value="good" checked onchange="onRetCondChange()" style="accent-color:var(--success)">
+            <span style="font-size:13px;font-weight:700;color:var(--success)">✅ سليم</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;background:var(--danger-glow);border:1.5px solid rgba(239,68,68,.3);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer">
+            <input type="radio" name="ret-cond" id="ret-exp" value="expired" onchange="onRetCondChange()" style="accent-color:var(--danger)">
+            <span style="font-size:13px;font-weight:700;color:var(--danger)">⚠️ منتهي الصلاحية</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- تحذير المنتهي — لا يُضاف للمخزون -->
+      <div id="ret-exp-warning" style="display:none;background:rgba(239,68,68,0.1);border:1.5px solid rgba(239,68,68,.4);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:900;color:var(--danger);margin-bottom:4px">🚫 المرتجع منتهي الصلاحية</div>
+        <div style="font-size:12px;color:#fca5a5;line-height:1.6">
+          • لن تتغير الكمية في المخزن<br>
+          • يُسجَّل فقط كحركة توثيق<br>
+          • يجب إرجاعه لقسم الصيدلة المركزية للإتلاف
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="ff full">
+          <label id="ret-src-label">مصدر الاسترجاع *</label>
+          <select id="ret-src"></select>
+        </div>
+        <div class="ff"><label>الكمية *</label><input id="ret-qty" type="number" min="1" placeholder="0"></div>
+        <div class="ff"><label>رقم الوثيقة</label><input id="ret-doc" type="text" placeholder="رقم الوثيقة"></div>
+        <div class="ff"><label>رقم الدفعة</label><input id="ret-batch" type="text" placeholder="LOT-001"></div>
+        <div class="ff"><label>تاريخ الانتهاء</label><input id="ret-expiry" type="date"></div>
+        <div class="ff full"><label>ملاحظات / سبب الاسترجاع</label><textarea id="ret-notes" placeholder="سبب الاسترجاع..."></textarea></div>
+      </div>
+      <div class="form-actions" style="margin-top:14px">
+        <button class="btn btn-cancel" onclick="closeM('m-return')">إلغاء</button>
+        <button class="btn btn-save" id="ret-save-btn" onclick="saveReturn()">↩️ تأكيد الاسترجاع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MOVEMENT LOG -->
 <div class="modal-ov" id="m-movlog">
   <div class="modal-sheet">
@@ -1243,7 +1366,7 @@ ul{list-style:none}
         </div>
         <div class="ff"><label>النوع</label>
           <select id="mov-type" onchange="loadMovs()">
-            <option value="">الكل</option><option value="in">وارد</option><option value="out">صادر</option>
+            <option value="">الكل</option><option value="in">وارد</option><option value="out">صادر</option><option value="return">↩️ مرتجع سليم</option><option value="return_expired">🚫 مرتجع منتهي</option><option value="opening">🏁 رصيد افتتاحي</option>
           </select>
         </div>
         <div class="ff"><label>من</label><input type="date" id="mov-from" onchange="loadMovs()"></div>
@@ -1813,8 +1936,13 @@ function renderDepletionWarnings(warnings){
 
 function updateHomeBadge(){
   const mins=ALL.filter(i=>i.minQuantity&&(i.quantity||0)<=i.minQuantity).length;
+  const depW=ALL.filter(i=>{
+    if(!i.quantity||i.quantity<=0||!i.yearlyNeed||i.yearlyNeed<=0) return false;
+    return Math.floor(i.quantity/(i.yearlyNeed/365))<=45;
+  }).length;
+  const total=mins+depW;
   const b=el('nb-home');
-  if(mins){ b.style.display='flex'; b.textContent=mins; }
+  if(total){ b.style.display='flex'; b.textContent=total; }
   else b.style.display='none';
 }
 
@@ -1972,12 +2100,17 @@ async function openDetail(id){
 
   if(isStaff()){
     html+=`
-      <!-- زر الصرف — الأهم والأكثر استخداماً -->
-      ${isStaff()?`<button class="act-btn act-out" style="grid-column:1/-1;padding:16px;font-size:15px" onclick="closeM('m-detail');openOut('${id}')"><span class="ai">📤</span>صرف — FEFO</button>`:''}
+      <!-- صرف واسترجاع — الأكثر استخداماً -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        ${isStaff()?`<button class="act-btn act-out" style="padding:16px;font-size:14px" onclick="closeM('m-detail');openOut('${id}')"><span class="ai">📤</span>صرف FEFO</button>`:''}
+        ${isStaff()?`<button class="act-btn" style="padding:16px;font-size:14px;background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25)" onclick="closeM('m-detail');openReturn('${id}')"><span class="ai">↩️</span>استرجاع</button>`:''}
+      </div>
       <div class="det-actions">
         ${isStaff()?`<button class="act-btn act-in" onclick="closeM('m-detail');openIn('${id}')"><span class="ai">📥</span>وارد</button>`:''}
         <button class="act-btn act-edit" onclick="closeM('m-detail');openEdit('${id}')"><span class="ai">✏️</span>تعديل</button>
         ${isAdmin()?`<button class="act-btn act-del" onclick="closeM('m-detail');delItem('${id}')"><span class="ai">🗑️</span>حذف</button>`:''}
+        ${isAdmin()&&!item.hasOpeningBalance?`<button class="act-btn" style="grid-column:1/-1;background:rgba(16,185,129,.1);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:12px" onclick="closeM('m-detail');openOpening('${id}')"><span class="ai">🏁</span>إدخال الرصيد الافتتاحي</button>`:''}
+        ${isAdmin()&&item.hasOpeningBalance?`<button class="act-btn" style="grid-column:1/-1;background:rgba(16,185,129,.05);color:rgba(16,185,129,.6);border:1px solid rgba(16,185,129,.15);font-size:12px;cursor:default" disabled><span class="ai">✅</span>تم إدخال الرصيد الافتتاحي</button>`:''}
       </div>`;
   }
 
@@ -1993,6 +2126,7 @@ async function openDetail(id){
     ${item.depletionDate?`<div class="det-row"><span class="det-lbl">تاريخ النفاد</span><span class="det-val" style="color:var(--danger)">${fmtDate(item.depletionDate)}</span></div>`:''}
     ${item.availableDate?`<div class="det-row"><span class="det-lbl">تاريخ التوفر</span><span class="det-val" style="color:var(--success)">${fmtDate(item.availableDate)}</span></div>`:''}
     ${item.notes?`<div class="det-row"><span class="det-lbl">ملاحظات</span><span class="det-val">${item.notes}</span></div>`:''}
+    ${item.hasOpeningBalance?`<div class="det-row"><span class="det-lbl">الرصيد الافتتاحي</span><span class="det-val" style="color:var(--success);font-weight:700">✅ مُدخَل بتاريخ ${fmtDate(item.openingBalanceDate)}</span></div>`:`<div class="det-row"><span class="det-lbl">الرصيد الافتتاحي</span><span class="det-val" style="color:var(--warning)">⏳ لم يُدخَل بعد</span></div>`}
   </div>`;
 
   if(monthsLeft!==null){
@@ -2068,15 +2202,18 @@ function buildCatSelect(id){
 async function saveItem(){
   const name=v('f-name').trim(), qty=parseFloat(v('f-qty')), unit=v('f-unit').trim(), cat=v('f-cat');
   if(!name){ toast('الاسم مطلوب','error'); return; }
-  if(isNaN(qty)||qty<0){ toast('الكمية يجب أن تكون صفراً أو أكثر','error'); return; }
+  if(isNaN(qty)||qty<0){ toast('⛔ الكمية لا يمكن أن تكون سالبة','error'); return; }
   if(!unit){ toast('الوحدة مطلوبة','error'); return; }
   const code=v('f-code').trim();
   if(code){
     const dup=ALL.find(i=>i.code===code&&i.id!==editId);
-    if(dup){ toast('الرمز الوطني موجود مسبقاً: '+dup.name,'error'); return; }
+    if(dup){ toast(`⛔ الرمز الوطني "${code}" مستخدم مسبقاً للمادة: ${dup.name}`,'error',5000); return; }
   }
   const expiry=v('f-expiry');
-  if(expiry&&isNaN(new Date(expiry).getTime())){ toast('تاريخ الانتهاء غير صحيح','error'); return; }
+  if(expiry){
+    if(isNaN(new Date(expiry).getTime())){ toast('⛔ تاريخ الانتهاء غير صحيح','error'); return; }
+    if(new Date(expiry)<new Date()) toast('⚠️ تنبيه: تاريخ الانتهاء في الماضي','warning',4000);
+  }
 
   const yearlyNeed=parseFloat(v('f-yearly'))||0;
   // الحد الأدنى = 1.5 شهر من الحاجة السنوية إذا لم يُدخَل يدوياً
@@ -2227,31 +2364,56 @@ async function openOut(id){
   setTxt('out-name',item.name);
   el('out-dest').innerHTML=SETTINGS.destinations.map(d=>`<option value="${d}">${d}</option>`).join('');
 
-  let fefoHtml='', hasExpFirst=false;
+  let fefoHtml='', hasExpFirst=false, allExpired=false;
   try{
     const bs=await invCol().doc(id).collection('batches').where('quantity','>',0).get();
     const batches=bs.docs.map(d=>({id:d.id,...d.data()})).filter(b=>b.quantity>0).sort((a,b)=>new Date(a.expiryDate||'9999')-new Date(b.expiryDate||'9999'));
     if(batches.length){
+      const now2=new Date();
       const first=batches[0];
-      if(first.expiryDate&&new Date(first.expiryDate)<new Date()) hasExpFirst=true;
+      if(first.expiryDate&&new Date(first.expiryDate)<now2) hasExpFirst=true;
+      allExpired=batches.every(b=>b.expiryDate&&new Date(b.expiryDate)<now2);
       fefoHtml=`<div class="fefo-preview">
         <div class="fp-title">🔄 FEFO — ترتيب الصرف التلقائي</div>
         ${batches.map((b,idx)=>{
           const exp=b.expiryDate?new Date(b.expiryDate):null;
-          const isExp=exp&&exp<new Date();
+          const isExp=exp&&exp<now2;
           const cls=isExp?'expired':idx===0?'will-use':'';
           return`<div class="fefo-batch-row ${cls}">
             <span>${idx===0?'📤':'⬇️'} ${b.batchNumber||'—'}</span>
             <span>${fmtDate(b.expiryDate)}</span>
             <span>${b.quantity} ${item.unit||''}</span>
+            ${isExp?'<span style="color:var(--danger);font-size:10px;font-weight:900">⚠️ منتهية</span>':''}
           </div>`;
         }).join('')}
       </div>`;
     }
   }catch(e){}
-  el('out-exp-warn').style.display=hasExpFirst?'flex':'none';
+  const expWarn=el('out-exp-warn');
+  const saveBtn=el('m-out').querySelector('.btn-warn');
+  if(allExpired){
+    expWarn.style.display='flex'; expWarn.style.flexDirection='column'; expWarn.style.gap='8px';
+    expWarn.innerHTML='<div>🚫 <strong>جميع الدفعات منتهية الصلاحية — الصرف محجوب</strong></div><div style="font-size:12px;font-weight:400">يجب إتلاف هذه المواد. تواصل مع المدير الصيدلاني.</div>';
+    expWarn.style.background='rgba(239,68,68,0.15)'; expWarn.style.border='1.5px solid rgba(239,68,68,0.5)';
+    if(saveBtn){ saveBtn.disabled=true; saveBtn.style.opacity='0.4'; }
+  } else if(hasExpFirst){
+    expWarn.style.display='flex'; expWarn.style.flexDirection='column'; expWarn.style.gap='8px';
+    expWarn.innerHTML=`<div>⚠️ <strong>تحذير: الدفعة الأولى في FEFO منتهية الصلاحية</strong></div><div style="font-size:12px;font-weight:400">سيتم الصرف منها أولاً — تأكد من الموافقة.</div><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" id="exp-confirm-cb" onchange="toggleExpiredConfirm(this)"> أقر بأن الصرف تم بموافقة المسؤول الصيدلاني</label>`;
+    expWarn.style.background='rgba(239,68,68,0.1)'; expWarn.style.border='1.5px solid rgba(239,68,68,0.4)';
+    if(saveBtn){ saveBtn.disabled=true; saveBtn.style.opacity='0.4'; }
+  } else {
+    expWarn.style.display='none';
+    if(saveBtn){ saveBtn.disabled=false; saveBtn.style.opacity=''; }
+  }
   el('fefo-info').innerHTML=fefoHtml;
   openM('m-out');
+}
+
+function toggleExpiredConfirm(cb){
+  const saveBtn=el('m-out').querySelector('.btn-warn');
+  if(!saveBtn)return;
+  if(cb.checked){ saveBtn.disabled=false; saveBtn.style.opacity=''; saveBtn.style.background='linear-gradient(135deg,var(--danger),var(--danger-dark))'; saveBtn.textContent='⚠️ صرف مع إقرار'; }
+  else { saveBtn.disabled=true; saveBtn.style.opacity='0.4'; saveBtn.style.background=''; saveBtn.textContent='📤 تأكيد الصرف'; }
 }
 
 async function saveOut(){
@@ -2260,7 +2422,11 @@ async function saveOut(){
   if(!dest){ toast('الجهة المستلمة مطلوبة','error'); return; }
   const item=ALL.find(i=>i.id===selId);
   if(!item)return;
-  if((item.quantity||0)<qty){ toast('الكمية المطلوبة أكبر من المتاح!','error'); return; }
+  if((item.quantity||0)<=0){ toast('المخزون نفد — لا يمكن الصرف','error'); return; }
+  if(qty>(item.quantity||0)){
+    toast(`⛔ الكمية المطلوبة (${qty}) أكبر من المتاح (${item.quantity||0} ${item.unit||''})`, 'error', 5000);
+    return;
+  }
   showLoad();
   try{
     const bs=await invCol().doc(selId).collection('batches').where('quantity','>',0).get();
@@ -2281,15 +2447,19 @@ async function saveOut(){
     if(newQty<=0) upd.depletionDate=nowISO();
     await invCol().doc(selId).update(upd);
     const docNo=v('out-doc').trim();
+    const expiredAck=!!(el('exp-confirm-cb')?.checked);
+    const outNotes=v('out-notes').trim();
     await movCol().add({
       inventoryId:selId,code:item.code||'',name:item.name,
       type:item.category||'',unit:item.unit||'',movType:'out',
       quantity:qty,quantityBefore:item.quantity||0,quantityAfter:newQty,
-      destination:dest,documentNo:docNo,notes:v('out-notes').trim(),
-      batches:dispatched,
+      destination:dest,documentNo:docNo,
+      notes:outNotes+(expiredAck?' | ⚠️ صرف من دفعة منتهية — بإقرار المسؤول':''),
+      batches:dispatched,expiredBatchDispatch:expiredAck,
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       createdBy:CU?.name||CU?.email||''
     });
+    if(expiredAck) await auditLog('expired_dispatch',selId,item.name,'expiredBatch','','confirmed',`صرف من دفعة منتهية — ${dest}`);
     hideLoad();
     // شاشة تأكيد بصرية بعد الصرف
     el('m-out-body').innerHTML=`<div class="dispatch-success">
@@ -2306,6 +2476,491 @@ async function saveOut(){
       <button class="btn btn-save" style="width:100%" onclick="closeM('m-out')">تم ✓</button>
     </div>`;
   }catch(e){ hideLoad(); toast('خطأ: '+e.message,'error'); }
+}
+
+/* ════════════════════════════════
+   MOVEMENT RETURN — الاسترجاع
+════════════════════════════════ */
+function onRetDirChange(){
+  const isOut=el('ret-dir-out')?.checked; // مخزن → صيدلة مركزية
+  const lbl=el('ret-src-label');
+  const sel=el('ret-src');
+  if(!sel)return;
+  if(isOut){
+    // المخزن يرجع لقسم الصيدلة — الوجهة ثابتة
+    if(lbl) lbl.textContent='الوجهة *';
+    sel.innerHTML='<option value="قسم الصيدلة المركزية">قسم الصيدلة المركزية</option>';
+    sel.disabled=true;
+  } else {
+    // جهة ترجع للمخزن — يختار من قائمة الجهات
+    if(lbl) lbl.textContent='مصدر الاسترجاع *';
+    sel.disabled=false;
+    const sources=[...SETTINGS.destinations];
+    sel.innerHTML=sources.map(s=>`<option value="${s}">${s}</option>`).join('');
+  }
+}
+
+function onRetCondChange(){
+  const isExp=el('ret-exp')?.checked;
+  const warn=el('ret-exp-warning');
+  const btn=el('ret-save-btn');
+  if(!warn||!btn)return;
+  warn.style.display=isExp?'block':'none';
+  if(isExp){
+    btn.style.background='linear-gradient(135deg,var(--warning),#d97706)';
+    btn.style.color='#0a0f1e';
+    btn.textContent='📋 تسجيل استرجاع منتهي (بدون تغيير المخزون)';
+  } else {
+    btn.style.background=''; btn.style.color='';
+    btn.textContent='↩️ تأكيد الاسترجاع';
+  }
+}
+
+function openReturn(id){
+  if(!isStaff()){ toast('ليس لديك صلاحية','error'); return; }
+  selId=id;
+  const item=ALL.find(i=>i.id===id);
+  if(!item)return;
+  setTxt('ret-name',item.name);
+  // إعادة تعيين النموذج
+  if(el('ret-good')) el('ret-good').checked=true;
+  ['ret-qty','ret-doc','ret-batch','ret-notes'].forEach(i=>setV(i,''));
+  // تاريخ انتهاء افتراضي = تاريخ الانتهاء الحالي للمادة
+  setV('ret-expiry', item.earliestExpiry||item.expiryDate||'');
+  // إعادة تعيين اتجاه الاسترجاع للافتراضي
+  if(el('ret-dir-in')) el('ret-dir-in').checked=true;
+  onRetDirChange(); // يبني قائمة المصادر تلقائياً
+  // إعادة تعيين التحذير والزر
+  const warn=el('ret-exp-warning'); if(warn) warn.style.display='none';
+  const btn=el('ret-save-btn'); if(btn){ btn.style.background=''; btn.style.color=''; btn.textContent='↩️ تأكيد الاسترجاع'; }
+  openM('m-return');
+}
+
+async function saveReturn(){
+  const qty=parseInt(v('ret-qty')), src=v('ret-src'), batch=v('ret-batch').trim();
+  const expiry=v('ret-expiry'), notes=v('ret-notes').trim(), doc=v('ret-doc').trim();
+  const isExpired=el('ret-exp')?.checked;
+  const isOutDir=el('ret-dir-out')?.checked; // مخزن → صيدلة مركزية
+  if(!qty||qty<=0){ toast('الكمية يجب أن تكون أكبر من صفر','error'); return; }
+  if(!src){ toast('مصدر الاسترجاع مطلوب','error'); return; }
+  const item=ALL.find(i=>i.id===selId);
+  if(!item)return;
+
+  // المرتجع السليم: تحقق من التاريخ
+  if(!isExpired&&expiry&&new Date(expiry)<new Date()){
+    toast('⚠️ تاريخ الانتهاء في الماضي — إذا كان منتهياً اختر "منتهي الصلاحية"','warning',5000);
+    return;
+  }
+
+  showLoad();
+  try{
+    if(isExpired){
+      // ══ مرتجع منتهي الصلاحية ══
+      // لا تغيير في الكمية — توثيق فقط
+      await movCol().add({
+        inventoryId:selId,code:item.code||'',name:item.name,
+        type:item.category||'',unit:item.unit||'',
+        movType:'return_expired',
+        returnCondition:'expired',
+        returnDirection:isOutDir?'store_to_pharmacy':'dept_to_store',
+        quantity:qty,
+        quantityBefore:item.quantity||0,
+        quantityAfter:item.quantity||0, // لا تغيير
+        source:src,
+        destination:'قسم الصيدلة المركزية — للإتلاف',
+        documentNo:doc,
+        notes:notes+' | مرتجع منتهي الصلاحية — موجه لقسم الصيدلة المركزية للإتلاف',
+        batchNumber:batch||'',expiryDate:expiry||null,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy:CU?.name||CU?.email||''
+      });
+      await auditLog('return_expired',selId,item.name,'expired_return',qty,0,
+        `مرتجع منتهي من ${src} — لقسم الصيدلة المركزية للإتلاف`);
+      hideLoad();
+      el('m-return-body').innerHTML=`<div class="dispatch-success">
+        <span class="ds-icon">📋</span>
+        <div class="ds-title" style="color:var(--warning)">تم التوثيق</div>
+        <div style="background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4);border-radius:var(--radius-sm);padding:12px;font-size:12px;line-height:1.7;margin:8px 0">
+          <div style="font-weight:900;color:var(--danger);margin-bottom:4px">🚫 مرتجع منتهي الصلاحية — لم تتغير الكمية</div>
+          <div style="color:#fca5a5">• تم تسجيل الحركة للتوثيق فقط<br>• يجب إرجاع المادة فعلياً لقسم الصيدلة المركزية<br>• يجب إتلافها وفق إجراءات وزارة الصحة</div>
+        </div>
+        <div class="ds-details">
+          <div class="ds-row"><span class="ds-lbl">المادة</span><span class="ds-val">${item.name}</span></div>
+          <div class="ds-row"><span class="ds-lbl">الكمية الموثقة</span><span class="ds-val" style="color:var(--warning)">${qty} ${item.unit||''}</span></div>
+          <div class="ds-row"><span class="ds-lbl">من</span><span class="ds-val">${src}</span></div>
+          <div class="ds-row"><span class="ds-lbl">الوجهة</span><span class="ds-val" style="color:var(--danger)">قسم الصيدلة المركزية</span></div>
+          ${doc?`<div class="ds-row"><span class="ds-lbl">الوثيقة</span><span class="ds-val">${doc}</span></div>`:''}
+          <div class="ds-row"><span class="ds-lbl">الرصيد — لم يتغير</span><span class="ds-val" style="color:var(--muted)">${item.quantity||0} ${item.unit||''}</span></div>
+        </div>
+        <button class="btn btn-save" style="width:100%" onclick="closeM('m-return')">تم ✓</button>
+      </div>`;
+
+    } else {
+      // ══ مرتجع سليم ══
+      // يزيد الكمية + يضيف دفعة
+      const newQty=(item.quantity||0)+qty;
+      const wasZero=!item.quantity||item.quantity<=0;
+      const upd={
+        quantity:newQty,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        ...(wasZero?{availableDate:nowISO(),depletionDate:null}:{})
+      };
+      // تحديث earliestExpiry إذا كان تاريخ المرتجع أقدم
+      if(expiry){
+        const curE=item.earliestExpiry?new Date(item.earliestExpiry):null;
+        if(!curE||new Date(expiry)<curE) upd.earliestExpiry=expiry;
+      }
+      await invCol().doc(selId).update(upd);
+      await invCol().doc(selId).collection('batches').add({
+        batchNumber:batch||`RET-${Date.now()}`,
+        quantity:qty,expiryDate:expiry||null,
+        receivedDate:nowISO(),
+        source:`استرجاع — ${src}`,
+        isReturn:true,isExpiredReturn:false,
+        returnDirection:isOutDir?'store_to_pharmacy':'dept_to_store',
+        purchaseYear:null
+      });
+      await movCol().add({
+        inventoryId:selId,code:item.code||'',name:item.name,
+        type:item.category||'',unit:item.unit||'',
+        movType:'return',returnCondition:'good',
+        returnDirection:isOutDir?'store_to_pharmacy':'dept_to_store',
+        quantity:qty,quantityBefore:item.quantity||0,quantityAfter:newQty,
+        source:src,documentNo:doc,
+        notes:notes+(isOutDir?' | استرجاع: مخزن → صيدلة مركزية':' | استرجاع: جهة → مخزن'),
+        batchNumber:batch||'',expiryDate:expiry||null,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy:CU?.name||CU?.email||''
+      });
+      await auditLog('return',selId,item.name,'quantity',item.quantity||0,newQty,
+        `استرجاع سليم من ${src}${isOutDir?' (مخزن→صيدلة)':''}`);
+      hideLoad();
+      el('m-return-body').innerHTML=`<div class="dispatch-success">
+        <span class="ds-icon">↩️</span>
+        <div class="ds-title" style="color:var(--success)">تم الاسترجاع</div>
+        <div class="ds-details">
+          <div class="ds-row"><span class="ds-lbl">المادة</span><span class="ds-val">${item.name}</span></div>
+          <div class="ds-row"><span class="ds-lbl">الكمية المرتجعة</span><span class="ds-val" style="color:var(--success)">+${qty} ${item.unit||''}</span></div>
+          <div class="ds-row"><span class="ds-lbl">المصدر</span><span class="ds-val">${src}</span></div>
+          <div class="ds-row"><span class="ds-lbl">الرصيد الجديد</span><span class="ds-val" style="color:var(--primary)">${newQty} ${item.unit||''}</span></div>
+          ${doc?`<div class="ds-row"><span class="ds-lbl">الوثيقة</span><span class="ds-val">${doc}</span></div>`:''}
+        </div>
+        <button class="btn btn-save" style="width:100%" onclick="closeM('m-return')">تم ✓</button>
+      </div>`;
+    }
+  }catch(e){ hideLoad(); toast('خطأ: '+e.message,'error'); }
+}
+
+/* تقرير المرتجعات */
+async function rptReturns(){
+  showLoad();
+  try{
+    // جلب كلا النوعين: return (سليم) و return_expired (منتهي)
+    const [snapGood,snapExp]=await Promise.all([
+      movCol().where('movType','==','return').orderBy('createdAt','desc').get(),
+      movCol().where('movType','==','return_expired').orderBy('createdAt','desc').get()
+    ]);
+    const snapDocs=[...snapGood.docs,...snapExp.docs].sort((a,b)=>(b.data().createdAt?.toMillis?.()??0)-(a.data().createdAt?.toMillis?.()??0));
+    const snap={docs:snapDocs};
+    const movs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const now=new Date();
+    setTxt('m-mf-title','تقرير المرتجعات');
+    const expiredMovs=movs.filter(m=>m.returnCondition==='expired'||m.movType==='return_expired');
+    const goodMovs=movs.filter(m=>m.returnCondition==='good'||(!m.returnCondition&&m.movType==='return'));
+    el('m-mf-body').innerHTML=`<div class="mf">
+      <h2>تقرير المرتجعات — ${DEPTS[curDept]?.name||''}</h2>
+      <p>${now.toLocaleDateString('ar-IQ')} | ${SETTINGS.hospitalName||''}</p>
+      ${expiredMovs.length?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--danger);font-weight:700">⚠️ يوجد ${expiredMovs.length} مرتجع منتهي الصلاحية يستوجب الإتلاف</div>`:''}
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">إجمالي المرتجعات: ${movs.length} | سليمة: ${goodMovs.length} | منتهية: ${expiredMovs.length}</div>
+      <table><thead><tr><th>#</th><th>اسم المادة</th><th>الكمية</th><th>الوحدة</th><th>الحالة</th><th>مصدر الاسترجاع</th><th>رقم الدفعة</th><th>تاريخ الانتهاء</th><th>رقم الوثيقة</th><th>بواسطة</th><th>التاريخ</th></tr></thead>
+      <tbody>${movs.length?movs.map((m,n)=>{
+        const isExp=m.returnCondition==='expired';
+        return`<tr style="${isExp?'background:rgba(239,68,68,.04)':''}">
+          <td>${n+1}</td><td>${m.name||'—'}</td>
+          <td style="font-weight:700;color:var(--success)">+${m.quantity||0}</td>
+          <td>${m.unit||'—'}</td>
+          <td style="font-weight:700;color:${isExp?'var(--danger)':'var(--success)'}">${isExp?'⚠️ منتهي — للإتلاف':'✅ سليم'}</td>
+          <td>${m.returnDirection==='store_to_pharmacy'?'مخزن ← صيدلة مركزية':m.source||'—'}</td>
+          <td>${m.batchNumber||'—'}</td>
+          <td>${fmtDate(m.expiryDate)}</td>
+          <td>${m.documentNo||'—'}</td>
+          <td>${m.createdBy||'—'}</td>
+          <td>${fmtDate(m.createdAt)}</td>
+        </tr>`;
+      }).join(''):'<tr><td colspan="11" style="text-align:center;color:#999">لا توجد مرتجعات</td></tr>'}
+      </tbody></table>
+      <div class="sign-row">
+        <div class="sign-box"><p>مسؤول المخزن</p></div>
+        <div class="sign-box"><p>المدير الصيدلاني</p></div>
+        ${expiredMovs.length?'<div class="sign-box"><p>مسؤول الإتلاف</p></div>':''}
+      </div>
+    </div>`;
+  }catch(e){ el('m-mf-body').innerHTML=`<p style="color:var(--danger);text-align:center;padding:20px">خطأ: ${e.message}</p>`; }
+  hideLoad(); openM('m-mf');
+}
+
+/* ════════════════════════════════
+   OPENING BALANCE — الرصيد الافتتاحي
+════════════════════════════════ */
+let obBatches = []; // دفعات الرصيد الافتتاحي الحالية
+
+function addObBatch(batchNum='', expiryVal='', qtyVal=''){
+  const idx = obBatches.length;
+  obBatches.push({ idx, batch: batchNum, expiry: expiryVal, qty: qtyVal });
+  renderObBatches();
+}
+
+function removeObBatch(idx){
+  obBatches = obBatches.filter(b => b.idx !== idx);
+  // إعادة ترقيم
+  obBatches = obBatches.map((b, i) => ({ ...b, idx: i }));
+  renderObBatches();
+}
+
+function renderObBatches(){
+  const item = ALL.find(i => i.id === selId);
+  const unit = item?.unit || '';
+  el('ob-batches-list').innerHTML = obBatches.map((b, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--muted)">دفعة ${i + 1}</span>
+        ${obBatches.length > 1 ? `<button onclick="removeObBatch(${b.idx})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0">✕</button>` : ''}
+      </div>
+      <div class="form-grid">
+        <div class="ff">
+          <label>رقم الدفعة *</label>
+          <input type="text" id="ob-batch-${i}" value="${b.batch}" placeholder="LOT-001"
+            oninput="obBatches[${i}].batch=this.value">
+        </div>
+        <div class="ff">
+          <label>تاريخ الانتهاء *</label>
+          <input type="date" id="ob-expiry-${i}" value="${b.expiry}"
+            oninput="obBatches[${i}].expiry=this.value;calcObTotal()">
+        </div>
+        <div class="ff full">
+          <label>الكمية * <span style="color:var(--muted)">(${unit})</span></label>
+          <input type="number" id="ob-qty-${i}" value="${b.qty}" min="1" placeholder="0"
+            oninput="obBatches[${i}].qty=this.value;calcObTotal()">
+        </div>
+      </div>
+    </div>`).join('');
+  calcObTotal();
+}
+
+function calcObTotal(){
+  const total = obBatches.reduce((s, b) => s + (parseInt(b.qty) || 0), 0);
+  const item = ALL.find(i => i.id === selId);
+  const unit = item?.unit || '';
+  el('ob-total').textContent = total + ' ' + unit;
+}
+
+async function openOpening(id){
+  if(!isAdmin()){ toast('مسؤول فقط','error'); return; }
+  selId = id;
+  const item = ALL.find(i => i.id === id);
+  if(!item) return;
+
+  setTxt('ob-name', item.name);
+  obBatches = [];
+
+  // تاريخ اليوم كافتراضي
+  setV('ob-date', nowISO());
+
+  // تحقق من وجود رصيد افتتاحي مسبق
+  const hasPrev = !!item.hasOpeningBalance;
+  const prevWarn = el('ob-has-opening');
+  if(prevWarn) prevWarn.style.display = hasPrev ? 'block' : 'none';
+  const confirmCb = el('ob-confirm-dup');
+  if(confirmCb) confirmCb.checked = false;
+  const saveBtn = el('ob-save-btn');
+  if(saveBtn){
+    saveBtn.disabled = hasPrev;
+    saveBtn.style.opacity = hasPrev ? '0.4' : '';
+  }
+  if(hasPrev && confirmCb){
+    confirmCb.addEventListener('change', function(){
+      saveBtn.disabled = !this.checked;
+      saveBtn.style.opacity = this.checked ? '' : '0.4';
+    }, { once: false });
+  }
+
+  // دفعة واحدة افتراضية
+  const defExpiry = item.earliestExpiry || item.expiryDate || '';
+  const defBatch  = item.batchNumber || '';
+  addObBatch(defBatch, defExpiry, '');
+
+  openM('m-opening');
+}
+
+async function saveOpening(){
+  if(!isAdmin()){ toast('مسؤول فقط','error'); return; }
+  const item = ALL.find(i => i.id === selId);
+  if(!item) return;
+
+  const obDate = v('ob-date');
+  if(!obDate){ toast('تاريخ الرصيد الافتتاحي مطلوب','error'); return; }
+
+  // التحقق من الدفعات
+  for(let i = 0; i < obBatches.length; i++){
+    const b = obBatches[i];
+    // sync القيم من DOM قبل التحقق
+    b.batch  = el(`ob-batch-${i}`)?.value?.trim()  || b.batch;
+    b.expiry = el(`ob-expiry-${i}`)?.value          || b.expiry;
+    b.qty    = el(`ob-qty-${i}`)?.value             || b.qty;
+    const qty = parseInt(b.qty);
+    if(!b.batch){ toast(`دفعة ${i+1}: رقم الدفعة مطلوب`,'error'); return; }
+    if(!b.expiry){ toast(`دفعة ${i+1}: تاريخ الانتهاء مطلوب`,'error'); return; }
+    if(!qty || qty <= 0){ toast(`دفعة ${i+1}: الكمية يجب أن تكون أكبر من صفر`,'error'); return; }
+    // تحقق من تكرار رقم الدفعة
+    const dup = obBatches.filter((x,xi) => xi !== i && x.batch === b.batch);
+    if(dup.length){ toast(`دفعة ${i+1}: رقم الدفعة "${b.batch}" مكرر`,'error'); return; }
+  }
+
+  const totalQty = obBatches.reduce((s, b) => s + (parseInt(b.qty)||0), 0);
+  if(totalQty <= 0){ toast('الكمية الإجمالية يجب أن تكون أكبر من صفر','error'); return; }
+
+  showLoad();
+  try{
+    const oldQty = item.quantity || 0;
+    const newQty = oldQty + totalQty;
+
+    // أقدم تاريخ انتهاء بين الدفعات
+    const sortedExpiries = obBatches
+      .map(b => b.expiry)
+      .filter(Boolean)
+      .sort();
+    const earliestExp = sortedExpiries[0] || null;
+    const curEarliest = item.earliestExpiry || item.expiryDate || null;
+    const newEarliest = (!curEarliest || (earliestExp && earliestExp < curEarliest))
+      ? earliestExp : curEarliest;
+
+    // تحديث المادة الرئيسية
+    await invCol().doc(selId).update({
+      quantity: newQty,
+      hasOpeningBalance: true,
+      openingBalanceDate: obDate,
+      openingBalanceQty: totalQty,
+      earliestExpiry: newEarliest,
+      batchNumber: obBatches[0].batch,
+      expiryDate: obBatches[0].expiry,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // إضافة كل دفعة في subcollection
+    for(const b of obBatches){
+      await invCol().doc(selId).collection('batches').add({
+        batchNumber: b.batch,
+        quantity: parseInt(b.qty),
+        expiryDate: b.expiry,
+        receivedDate: obDate,
+        source: 'رصيد افتتاحي',
+        isOpeningBalance: true,
+        purchaseYear: null
+      });
+    }
+
+    // تسجيل حركة رصيد افتتاحي واحدة (إجمالية)
+    await movCol().add({
+      inventoryId: selId,
+      code: item.code || '',
+      name: item.name,
+      type: item.category || '',
+      unit: item.unit || '',
+      movType: 'opening',
+      quantity: totalQty,
+      quantityBefore: oldQty,
+      quantityAfter: newQty,
+      source: 'رصيد افتتاحي',
+      openingDate: obDate,
+      batches: obBatches.map(b => ({
+        batch: b.batch,
+        qty: parseInt(b.qty),
+        expiry: b.expiry
+      })),
+      documentNo: '',
+      notes: `رصيد افتتاحي — ${obBatches.length} دفعة — إجمالي: ${totalQty} ${item.unit||''}`,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: CU?.name || CU?.email || ''
+    });
+
+    await auditLog('opening_balance', selId, item.name,
+      'quantity', oldQty, newQty,
+      `رصيد افتتاحي — ${obBatches.length} دفعة — تاريخ: ${obDate}`);
+
+    hideLoad();
+
+    // شاشة تأكيد
+    const batchesHtml = obBatches.map((b,i) =>
+      `<div class="ds-row">
+        <span class="ds-lbl">دفعة ${i+1}: ${b.batch}</span>
+        <span class="ds-val">${parseInt(b.qty)||0} ${item.unit||''} | ينتهي ${fmtDate(b.expiry)}</span>
+      </div>`
+    ).join('');
+
+    el('m-opening').querySelector('.modal-body').innerHTML = `
+      <div class="dispatch-success">
+        <span class="ds-icon">🏁</span>
+        <div class="ds-title" style="color:var(--success)">تم إدخال الرصيد الافتتاحي</div>
+        <div class="ds-details">
+          <div class="ds-row"><span class="ds-lbl">المادة</span><span class="ds-val">${item.name}</span></div>
+          <div class="ds-row"><span class="ds-lbl">عدد الدفعات</span><span class="ds-val">${obBatches.length}</span></div>
+          ${batchesHtml}
+          <div class="ds-row"><span class="ds-lbl">الإجمالي</span><span class="ds-val" style="color:var(--primary);font-size:16px;font-weight:900">+${totalQty} ${item.unit||''}</span></div>
+          <div class="ds-row"><span class="ds-lbl">الرصيد الجديد</span><span class="ds-val" style="color:var(--success)">${newQty} ${item.unit||''}</span></div>
+          <div class="ds-row"><span class="ds-lbl">تاريخ الرصيد</span><span class="ds-val">${fmtDate(obDate)}</span></div>
+        </div>
+        <button class="btn btn-save" style="width:100%" onclick="closeM('m-opening')">تم ✓</button>
+      </div>`;
+
+  }catch(e){ hideLoad(); toast('خطأ: '+e.message,'error'); }
+}
+
+/* تقرير الأرصدة الافتتاحية */
+async function rptOpeningBalances(){
+  showLoad();
+  const now = new Date();
+  const withOB  = ALL.filter(i => i.hasOpeningBalance);
+  const withoutOB = ALL.filter(i => !i.hasOpeningBalance);
+  setTxt('m-mf-title','تقرير الأرصدة الافتتاحية');
+  el('m-mf-body').innerHTML = `<div class="mf">
+    <h2>تقرير الأرصدة الافتتاحية — ${DEPTS[curDept]?.name||''}</h2>
+    <p>${now.toLocaleDateString('ar-IQ')} | ${SETTINGS.hospitalName||''}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:900;color:var(--success)">${withOB.length}</div>
+        <div style="font-size:11px;color:var(--muted)">✅ مُدخَل رصيدها</div>
+      </div>
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:900;color:var(--danger)">${withoutOB.length}</div>
+        <div style="font-size:11px;color:var(--muted)">⏳ لم يُدخَل بعد</div>
+      </div>
+    </div>
+    ${withoutOB.length ? `
+    <div style="font-size:12px;font-weight:900;color:var(--danger);margin-bottom:6px">المواد التي لم يُدخَل رصيدها الافتتاحي (${withoutOB.length}):</div>
+    <table><thead><tr><th>#</th><th>الرمز</th><th>اسم المادة</th><th>النوع</th><th>الكمية الحالية</th><th>الوحدة</th></tr></thead>
+    <tbody>${withoutOB.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar')).map((i,n)=>`
+      <tr style="background:rgba(239,68,68,.03)">
+        <td>${n+1}</td><td>${i.code||'—'}</td><td style="font-weight:700">${i.name}</td>
+        <td>${i.category||'—'}</td><td>${i.quantity||0}</td><td>${i.unit||'—'}</td>
+      </tr>`).join('')}
+    </tbody></table>` : '<div style="color:var(--success);font-weight:700;text-align:center;padding:12px">✅ جميع المواد لها رصيد افتتاحي مُدخَل</div>'}
+    ${withOB.length ? `
+    <div style="font-size:12px;font-weight:900;color:var(--success);margin:14px 0 6px">المواد التي أُدخل رصيدها (${withOB.length}):</div>
+    <table><thead><tr><th>#</th><th>الرمز</th><th>اسم المادة</th><th>الكمية الافتتاحية</th><th>الوحدة</th><th>تاريخ الإدخال</th></tr></thead>
+    <tbody>${withOB.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar')).map((i,n)=>`
+      <tr>
+        <td>${n+1}</td><td>${i.code||'—'}</td><td>${i.name}</td>
+        <td style="font-weight:700;color:var(--success)">${i.openingBalanceQty||0}</td>
+        <td>${i.unit||'—'}</td><td>${fmtDate(i.openingBalanceDate)}</td>
+      </tr>`).join('')}
+    </tbody></table>` : ''}
+    <div class="sign-row">
+      <div class="sign-box"><p>مسؤول المخزن</p></div>
+      <div class="sign-box"><p>المدير الصيدلاني</p></div>
+    </div>
+  </div>`;
+  hideLoad();
+  openM('m-mf');
 }
 
 /* ════════════════════════════════
@@ -2439,9 +3094,10 @@ async function renderMfBody(type, from, to, dest, src){
       let q=movCol().where('movType','==','in').orderBy('createdAt','desc');
       if(from) q=q.where('createdAt','>=',firebase.firestore.Timestamp.fromDate(new Date(from)));
       if(to)   q=q.where('createdAt','<=',firebase.firestore.Timestamp.fromDate(new Date(to+'T23:59:59')));
-      q=q.limit(500);
+      q=q.limit(501);
       const snap=await q.get();
       let movs=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(movs.length>500){ movs=movs.slice(0,500); toast('⚠️ السجلات تتجاوز 500 — ضيّق الفترة الزمنية','warning',6000); }
       if(src) movs=movs.filter(m=>m.source===src);
       html=`<div class="mf">
         <h2>جمهورية العراق — وزارة الصحة</h2>
@@ -2467,10 +3123,10 @@ async function renderMfBody(type, from, to, dest, src){
       let q=movCol().where('movType','==','out').orderBy('createdAt','desc');
       if(from) q=q.where('createdAt','>=',firebase.firestore.Timestamp.fromDate(new Date(from)));
       if(to)   q=q.where('createdAt','<=',firebase.firestore.Timestamp.fromDate(new Date(to+'T23:59:59')));
-      q=q.limit(500);
+      q=q.limit(501);
       const snap=await q.get();
-      let movs=snap.docs.map(d=>({id:d.id,...d.data()}))
-        .filter(m=>!m.destination?.includes('تسوية جرد'));
+      let movs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>!m.destination?.includes('تسوية جرد'));
+      if(movs.length>500){ movs=movs.slice(0,500); toast('⚠️ السجلات تتجاوز 500 — ضيّق الفترة الزمنية','warning',6000); }
       if(dest) movs=movs.filter(m=>m.destination===dest);
       html=`<div class="mf">
         <h2>جمهورية العراق — وزارة الصحة</h2>
@@ -2534,11 +3190,21 @@ function rptFull(){
 
 function rptExpiring(){
   const now=new Date();
-  const items=ALL.filter(i=>i.expiryDate&&daysBetween(now,new Date(i.expiryDate))<=SETTINGS.alertDays).sort((a,b)=>new Date(a.expiryDate)-new Date(b.expiryDate));
+  const items=ALL.filter(i=>{
+    const expStr=i.earliestExpiry||i.expiryDate;
+    if(!expStr) return false;
+    return daysBetween(now,new Date(expStr))<=SETTINGS.alertDays;
+  }).sort((a,b)=>new Date(a.earliestExpiry||a.expiryDate||'9999')-new Date(b.earliestExpiry||b.expiryDate||'9999'));
   setTxt('m-mf-title','تقرير قريبة انتهاء الصلاحية');
-  el('m-mf-body').innerHTML=`<div class="mf"><h2>تقرير المواد قريبة انتهاء الصلاحية</h2><p>خلال ${SETTINGS.alertDays} يوم — ${now.toLocaleDateString('ar-IQ')}</p>
-  <table><thead><tr><th>#</th><th>الرمز</th><th>اسم المادة</th><th>الكمية</th><th>الوحدة</th><th>تاريخ الانتهاء</th><th>الأيام المتبقية</th><th>رقم الدفعة</th></tr></thead>
-  <tbody>${items.map((i,n)=>{const days=daysBetween(now,new Date(i.expiryDate));return`<tr><td>${n+1}</td><td>${i.code||'—'}</td><td>${i.name}</td><td>${i.quantity||0}</td><td>${i.unit||'—'}</td><td>${fmtDate(i.expiryDate)}</td><td style="color:${days<0?'red':days<30?'orange':'green'};font-weight:700">${days}</td><td>${i.batchNumber||'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
+  el('m-mf-body').innerHTML=`<div class="mf"><h2>تقرير المواد قريبة انتهاء الصلاحية</h2>
+  <p>خلال ${SETTINGS.alertDays} يوم — ${now.toLocaleDateString('ar-IQ')} | ${DEPTS[curDept]?.name||''}</p>
+  <table><thead><tr><th>#</th><th>الرمز</th><th>اسم المادة</th><th>الكمية</th><th>الوحدة</th><th>أقرب تاريخ انتهاء</th><th>الأيام المتبقية</th><th>رقم الدفعة</th></tr></thead>
+  <tbody>${items.length?items.map((i,n)=>{
+    const expStr=i.earliestExpiry||i.expiryDate;
+    const days=daysBetween(now,new Date(expStr));
+    return`<tr><td>${n+1}</td><td>${i.code||'—'}</td><td>${i.name}</td><td>${i.quantity||0}</td><td>${i.unit||'—'}</td><td>${fmtDate(expStr)}</td><td style="color:${days<0?'var(--danger)':days<30?'var(--warning)':'var(--success)'};font-weight:700">${days<0?'منتهي':days+' يوم'}</td><td>${i.batchNumber||'—'}</td></tr>`;
+  }).join(''):'<tr><td colspan="8" style="text-align:center;color:#999">لا توجد مواد</td></tr>'}
+  </tbody></table></div>`;
   openM('m-mf');
 }
 
@@ -2623,25 +3289,33 @@ async function loadMovs(){
     let q=movCol().orderBy('createdAt','desc');
     if(from) q=q.where('createdAt','>=',firebase.firestore.Timestamp.fromDate(new Date(from)));
     if(to)   q=q.where('createdAt','<=',firebase.firestore.Timestamp.fromDate(new Date(to+'T23:59:59')));
-    q=q.limit(500); // حد معقول بعد فلتر التاريخ
+    q=q.limit(501);
     const snap=await q.get();
     let movs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(movs.length>500){ movs=movs.slice(0,500); toast('⚠️ النتائج تتجاوز 500 سجل — ضيّق نطاق التاريخ','warning',6000); }
     // فلاتر JavaScript على النتائج الكاملة
-    if(type) movs=movs.filter(m=>m.movType===type);
+    if(type==='return') movs=movs.filter(m=>m.movType==='return'||m.movType==='return_expired');
+    else if(type) movs=movs.filter(m=>m.movType===type);
+    // إخفاء الرصيد الافتتاحي من العرض الافتراضي ما لم يُطلب صراحةً
+    if(!type) movs=movs.filter(m=>m.movType!=='opening');
     if(movSelId) movs=movs.filter(m=>m.inventoryId===movSelId);
     // إخفاء تسويات الجرد من العرض الافتراضي ما لم يطلبها المستخدم
     const showAdj=v('mov-type')==='adj';
+    const showRet=v('mov-type')==='return';
     if(!showAdj) movs=movs.filter(m=>!m.source?.includes('تسوية جرد')&&!m.destination?.includes('تسوية جرد'));
     el('mov-list').innerHTML=movs.length?movs.map(m=>{
       const isAdj=m.source?.includes('تسوية جرد')||m.destination?.includes('تسوية جرد');
-      return`<div class="mov-row ${m.movType}" style="${isAdj?'border-right-color:var(--muted);opacity:0.8':''}">
-        <span class="mi">${isAdj?'⚖️':m.movType==='in'?'📥':'📤'}</span>
+      const isRet=m.movType==='return'||m.movType==='return_expired';
+      const isOpening=m.movType==='opening';
+      const isExpRet=m.movType==='return_expired'||m.returnCondition==='expired';
+      return`<div class="mov-row ${isOpening?'':isRet?'in':m.movType}" style="${isOpening?'border-right-color:#10b981;background:rgba(16,185,129,.04)':''}${isAdj?'border-right-color:var(--muted);opacity:0.8':''}${isExpRet?'border-right-color:var(--danger);':''}">
+        <span class="mi">${isOpening?'🏁':isAdj?'⚖️':isRet?(isExpRet?'⚠️':'↩️'):m.movType==='in'?'📥':'📤'}</span>
         <div class="minfo">
           <div class="mn">${m.name}${isAdj?` <span style="font-size:10px;color:var(--muted)">(تسوية جرد)</span>`:''}</div>
-          <div class="mm">${m.movType==='in'?(m.source||''):`→ ${m.destination||'—'}`} | ${fmtDate(m.createdAt)} | ${m.createdBy||''}</div>
+          <div class="mm">${isOpening?`🏁 رصيد افتتاحي — ${m.batches?.length||1} دفعة`:isRet?`↩️ مرتجع من ${m.source||'—'}${isExpRet?' ⚠️منتهي':''}`:m.movType==='in'?(m.source||''):`→ ${m.destination||'—'}`} | ${fmtDate(m.createdAt)} | ${m.createdBy||''}</div>
           ${m.documentNo?`<div class="mm">وثيقة: ${m.documentNo}</div>`:''}
         </div>
-        <span class="mq" style="color:${m.movType==='in'?'var(--success)':'var(--warning)'}">${m.movType==='in'?'+':'-'}${m.quantity}</span>
+        <span class="mq" style="color:${isOpening?'#10b981':isExpRet?'var(--muted)':isRet?'var(--success)':m.movType==='in'?'var(--success)':'var(--warning)'}">${isOpening?'+':isExpRet?'📋':isRet?'+':m.movType==='in'?'+':'-'}${m.quantity}</span>
       </div>`;
     }).join(''):'<div class="empty-state"><div class="ei">📜</div><div class="et">لا توجد حركات</div></div>';
   }catch(e){ el('mov-list').innerHTML=`<p style="color:var(--danger);text-align:center;padding:16px">خطأ: ${e.message}</p>`; }
@@ -2885,8 +3559,22 @@ async function confirmSt(id,sysQty){
     try{
       await invCol().doc(id).update({quantity:actual,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       await auditLog('stocktake',id,stItems[stIdx]?.name||'','quantity',sysQty,actual,'جرد دوري');
-      // تسجيل التسوية في movements لضمان سلامة سجل الحركة
       const diff=actual-sysQty;
+      // تعديل الدفعات بالتناسب لضمان اتساق FEFO
+      if(diff!==0){
+        const bsSnap=await invCol().doc(id).collection('batches').where('quantity','>',0).get();
+        const batchesSt=bsSnap.docs.map(d=>({id:d.id,...d.data()})).filter(b=>b.quantity>0)
+          .sort((a,b)=>new Date(b.expiryDate||'9999')-new Date(a.expiryDate||'9999'));
+        if(batchesSt.length>0){
+          const bb=db.batch(); let rem=Math.abs(diff);
+          for(const b of batchesSt){
+            if(rem<=0)break;
+            if(diff<0){ const ded=Math.min(b.quantity,rem); bb.update(invCol().doc(id).collection('batches').doc(b.id),{quantity:b.quantity-ded}); rem-=ded; }
+            else { bb.update(invCol().doc(id).collection('batches').doc(b.id),{quantity:b.quantity+rem}); rem=0; }
+          }
+          await bb.commit();
+        }
+      }
       await movCol().add({
         inventoryId:id,
         code:stItems[stIdx]?.code||'',

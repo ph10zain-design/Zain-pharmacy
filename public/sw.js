@@ -1,11 +1,11 @@
 /* ════════════════════════════════════════════════
-   SERVICE WORKER — مخزون الصيدلية v5.0
+   SERVICE WORKER — مخزون الصيدلية v5.4.0
    مستشفى الشطرة العام
    ————————————————————————————————————————————————
    ⚠️  عند كل deploy مهم: غيّر رقم CACHE_VERSION
    ════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'pharmacy-v5.3.0';
+const CACHE_VERSION = 'pharmacy-v5.4.0';
 const CACHE_NAME    = `pharmacy-${CACHE_VERSION}`;
 
 const PRECACHE = [
