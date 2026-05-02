@@ -1,0 +1,21 @@
+[debug] [2026-05-02T18:18:02.848Z] ----------------------------------------------------------------------
+[debug] [2026-05-02T18:18:02.861Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\AL-Mustaqbal\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --project phzain14
+[debug] [2026-05-02T18:18:02.861Z] CLI Version:   15.15.0
+[debug] [2026-05-02T18:18:02.861Z] Platform:      win32
+[debug] [2026-05-02T18:18:02.861Z] Node Version:  v24.15.0
+[debug] [2026-05-02T18:18:02.862Z] Time:          Sat May 02 2026 21:18:02 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-02T18:18:02.862Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-02T18:18:05.590Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-02T18:18:05.590Z] > authorizing via signed-in user (ph10zain@gmail.com)
+[debug] [2026-05-02T18:18:05.590Z] [iam] checking project phzain14 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-02T18:18:05.592Z] Checked if tokens are valid: true, expires at: 1777748089669
+[debug] [2026-05-02T18:18:05.592Z] Checked if tokens are valid: true, expires at: 1777748089669
+[debug] [2026-05-02T18:18:05.593Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/phzain14:testIamPermissions [none]
+[debug] [2026-05-02T18:18:05.593Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/phzain14:testIamPermissions  x-goog-user-project=phzain14
+[debug] [2026-05-02T18:18:05.593Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/phzain14:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-02T18:18:06.795Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/phzain14:testIamPermissions 200
+[debug] [2026-05-02T18:18:06.795Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/phzain14:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-02T18:18:06.797Z] Checked if tokens are valid: true, expires at: 1777748089669
+[debug] [2026-05-02T18:18:06.797Z] Checked if tokens are valid: true, expires at: 1777748089669
+[debug] [2026-05-02T18:18:06.798Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/phzain14 [none]
