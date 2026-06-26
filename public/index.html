@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مخزون الصيدلية v7.5 — مستشفى الشطرة العام</title>
+    <meta name="theme-color" content="#070c18">
+    <meta name="description" content="نظام إدارة مخزون الصيدلية والمستلزمات الطبية والمختبرية - مستشفى الشطرة العام">
+    <meta name="application-name" content="مخزون الصيدلية">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="مخزون الصيدلية">
+    <meta name="color-scheme" content="dark">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" href="/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+
+    <!-- 
+    ⚠️ CSP محدَّث v7.5:
+    - 🔴 #6 أُضيف upgrade-insecure-requests + frame-src 'none' + base-uri 'self'
+    - 🔴 #6 ⚠️ 'unsafe-inline' ما زالت موجودة لأن المشروع يستخدم onclick=... في كل
+       مكان. إزالتها كلياً تتطلب refactor كبير (تحويل كل onclick → addEventListener).
+       خطة الإصلاح: مرحلة v7.6 سنزيلها.
+    - worker-src 'self' blob: → ضروري لـ Tesseract.js workers
+    - connect-src يضم cdn.jsdelivr.net + tessdata.projectnaptha.com لتحميل بيانات Tesseract
+    -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   base-uri 'self';
+                   form-action 'self';
+                   script-src 'self' 'unsafe-inline'
+                       https://www.gstatic.com
+                       https://cdn.jsdelivr.net
+                       https://cdnjs.cloudflare.com;
+                   style-src 'self' 'unsafe-inline'
+                       https://fonts.googleapis.com;
+                   font-src 'self' data:
+                       https://fonts.gstatic.com
+                       https://cdn.jsdelivr.net;
+                   connect-src 'self'
+                       https://*.googleapis.com
+                       https://*.firebaseio.com
+                       https://fcm.googleapis.com
+                       https://api.fda.gov
+                       https://accessgudid.nlm.nih.gov
+                       https://pubchem.ncbi.nlm.nih.gov
+                       https://rxnav.nlm.nih.gov
+                       https://cdn.jsdelivr.net
+                       https://tessdata.projectnaptha.com
+                       https://fonts.gstatic.com
+                       wss://*.firebaseio.com;
+                   img-src 'self' data: blob:
+                       https://*.googleapis.com
+                       https://lh3.googleusercontent.com;
+                   worker-src 'self' blob:;
+                   child-src 'self' blob:;
+                   frame-src 'none';
+                   frame-ancestors 'none';
+                   upgrade-insecure-requests;">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.googleapis.com">
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+    <link rel="dns-prefetch" href="https://fcm.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Readex+Pro:wght@200;300;400;500;600;700&display=swap"
+          rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Readex+Pro:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    </noscript>
+
+    <!-- 
+    🔴 v7.5 #23: SRI (Subresource Integrity) — يجب حسابها قبل النشر
+    
+    ⚠️ تعليمات لتفعيل SRI بعد التحميل من Codespaces/local:
+       bash scripts/compute-sri.sh
+       ثم انسخ الـ output واضف integrity="sha384-..." crossorigin="anonymous"
+       لكل <script> تحت CDN.
+    
+    لم نضعها في v7.5 لأن الـ hashes تتغيّر مع كل إصدار من المكتبات
+    وضع hash خاطئة = تعطّل التطبيق كلياً (المتصفح يرفض الـ script).
+    -->
+    
+    <!-- Firebase SDK 10.7.1 (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- ⚠️ إضافة firebase-messaging-compat — كان مفقوداً سابقاً وكسر FCM -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+
+    <!-- Libs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+    <!-- شاشة القفل -->
+    <div id="screen-lock" role="dialog" aria-modal="true">
+        <div class="lock-card">
+            <span class="lock-icon">🔒</span>
+            <div style="font-size:1rem;font-weight:600;margin-bottom:4px">الجلسة مقفلة</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem" id="lock-user-name">أدخل كلمة المرور</div>
+            <input type="password" id="lock-password" class="form-control" placeholder="كلمة المرور"
+                   style="margin-bottom:12px;text-align:center"
+                   onkeydown="if(event.key==='Enter') ScreenLock.unlock()">
+            <button class="btn btn-primary" style="width:100%" onclick="ScreenLock.unlock()">🔓 فتح</button>
+            <div id="lock-error" style="color:var(--danger);font-size:0.75rem;margin-top:8px;display:none">كلمة المرور غير صحيحة</div>
+            <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="ScreenLock.signOutAndLock()">تسجيل خروج كامل</button>
+        </div>
+    </div>
+
+    <!-- البحث العالمي -->
+    <div id="global-search-overlay" role="dialog">
+        <div style="display:flex;gap:8px;margin-bottom:4px">
+            <input type="search" id="global-search-input" placeholder="🔍 ابحث عن مادة، رمز، دفعة..." autocomplete="off"
+                   oninput="GlobalSearch.search(this.value)"
+                   onkeydown="GlobalSearch.handleKey(event)">
+            <button class="btn btn-sm" onclick="GlobalSearch.close()" style="white-space:nowrap">✕</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px">ابحث بالاسم أو الرمز أو رقم الدفعة</div>
+        <div id="global-search-results" style="overflow-y:auto;flex:1"></div>
+    </div>
+
+    <a href="#main-content" class="skip-link"
+       style="position:absolute;top:-40px;right:0;background:var(--primary);color:#000;
+              padding:8px 16px;z-index:9999;border-radius:0 0 var(--radius) 0;
+              font-size:0.85rem;transition:top 0.2s"
+       onfocus="this.style.top='0'" onblur="this.style.top='-40px'">
+        تخطّ للمحتوى الرئيسي
+    </a>
+
+    <div id="offline-block">
+        <div style="font-size:64px">📡</div>
+        <h2 style="color:var(--danger)">لا يوجد اتصال بالإنترنت</h2>
+        <p style="color:var(--muted)">هذا التطبيق يتطلب اتصالاً دائماً للعمل بأمان</p>
+    </div>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-logo"><span>💊</span><h1>مخزون الصيدلية</h1><p>مستشفى الشطرة العام</p></div>
+            <div class="form-group"><input id="auth-email" type="email" class="form-control" placeholder="البريد الإلكتروني" autocomplete="username"></div>
+            <div class="form-group"><input id="auth-pass" type="password" class="form-control" placeholder="كلمة المرور" autocomplete="current-password"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin:8px 0;justify-content:flex-end">
+                <label for="remember-me" style="font-size:0.85rem;color:var(--muted)">تذكرني</label>
+                <input type="checkbox" id="remember-me" style="width:16px;height:16px;cursor:pointer">
+            </div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:8px;text-align:center;background:var(--warning-dim);padding:4px 8px;border-radius:var(--radius-xs);border:1px solid rgba(251,146,60,0.2)">
+                ⚠️ لا تستخدم "تذكرني" على جهاز مشترك
+            </div>
+            <button class="btn btn-primary" id="btn-login" onclick="doLogin()" style="width:100%;margin-top:10px">تسجيل الدخول</button>
+            <div style="text-align:center;margin-top:10px">
+                <a href="#" onclick="doForgotPassword();return false" style="font-size:0.8rem;color:var(--text2);text-decoration:underline">
+                    🔑 نسيت كلمة المرور؟
+                </a>
+            </div>
+            <div id="auth-err" style="display:none;color:var(--danger);margin-top:10px"></div>
+        </div>
+    </div>
+
+    <header class="app-header" id="app-header" style="display:none">
+        <div><span id="user-info" style="font-size:0.72rem;color:var(--muted)"></span></div>
+        <h1 id="section-title" style="font-size:0.95rem;font-weight:600">📊 الرئيسية</h1>
+        <button class="btn btn-sm" style="background:var(--surface2);color:var(--text)" onclick="App.logout()">🚪 خروج</button>
+    </header>
+
+    <main id="main-content" style="display:none"></main>
+
+    <nav class="bottom-nav" id="bottom-nav" style="display:none">
+        <button class="nav-btn active" data-section="dashboard" onclick="App.switchSection('dashboard')">
+            <span class="nav-icon">📊</span> الرئيسية
+        </button>
+        <button class="nav-btn" data-section="inventory" onclick="App.switchSection('inventory')">
+            <span class="nav-icon">📦</span> المخزون
+        </button>
+        <button class="nav-btn" data-section="cards" onclick="App.switchSection('cards')">
+            <span class="nav-icon">🃏</span> البطاقات
+        </button>
+        <button class="nav-btn" data-section="reports" onclick="App.switchSection('reports')">
+            <span class="nav-icon">📋</span> التقارير
+        </button>
+        <button class="nav-btn" data-section="needs" onclick="App.switchSection('needs')">
+            <span class="nav-icon">📈</span> تقدير الحاجة
+        </button>
+        <button class="nav-btn" data-section="ai" onclick="App.switchSection('ai')" style="position:relative">
+            <span class="nav-icon">🤖</span><span>AI</span>
+        </button>
+        <button class="nav-btn" data-section="notifications" onclick="App.switchSection('notifications')" style="position:relative">
+            <span class="nav-icon">🔔</span><span>الإشعارات</span>
+            <span id="notif-nav-badge" class="notif-badge" style="display:none">0</span>
+        </button>
+        <button class="nav-btn" data-section="settings" onclick="App.switchSection('settings')">
+            <span class="nav-icon">⚙️</span> الإعدادات
+        </button>
+    </nav>
+
+    <div id="toast-container"></div>
+
+    <!-- ===== Core (يجب تحميله أولاً) ===== -->
+    <script src="js/core/config.js"></script>
+    <script src="js/core/globals.js"></script>
+    <script src="js/core/utils.js"></script>
+
+    <!-- ===== 🆕 v7.4: cache + audit (مشتركان بين التقارير) ===== -->
+    <script src="js/core/report-cache.js"></script>
+    <script src="js/utils/audit-export.js"></script>
+
+    <!-- ===== v7.1: تحليلات الاحتياج المُبسَّط (التوفر الحقيقي فقط) ===== -->
+    <script src="js/core/needs-analytics.js"></script>
+
+    <!-- ===== 🆕 v6.6 Core: حماية البيانات والاتصال ===== -->
+    <script src="js/core/connection-monitor.js"></script>
+    <script src="js/core/draft-manager.js"></script>
+    <script src="js/core/ministry-lists.js"></script>
+
+    <!-- ===== 🆕 v6.6 Utils ===== -->
+    <script src="js/utils/number-to-arabic.js"></script>
+
+    <!-- ===== App Methods (مُقسَّمة حسب القسم) ===== -->
+    <script src="js/app-core.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/needs.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/reports.js"></script>
+
+    <!-- ===== Feature Modules ===== -->
+    <script src="js/features/screen-lock.js"></script>
+    <script src="js/features/internal-notif.js"></script>
+    <script src="js/features/global-search.js"></script>
+    <script src="js/features/session-counter.js"></script>
+    <script src="js/features/pharmacy-ai.js"></script>
+    <script src="js/features/pwa-install.js"></script>
+
+    <!-- ===== 🆕 v6.6 Features: قائمة التجهيز + عرض الطلبيات ===== -->
+    <script src="js/features/multi-batch-dispense.js"></script>
+    <script src="js/features/document-view.js"></script>
+
+    <!-- ===== 🆕 v6.7 Features: PDF + Telegram + OCR + Tree + YoY + Need vs Actual ===== -->
+    <script src="js/features/pdf-generator.js"></script>
+    <script src="js/features/telegram-notifier.js"></script>
+    <script src="js/features/ocr-reader.js"></script>
+    <script src="js/features/ministry-tree-view.js"></script>
+    <script src="js/features/yoy-diff-view.js"></script>
+    <script src="js/features/need-vs-actual.js"></script>
+
+    <!-- ===== Domain Modules ===== -->
+    <!-- 🗑️ v7.3: ledger.js حُذف؛ وظائفه تنتقل لـ reports-v73.js و stock-card-view.js -->
+    <script src="js/users.js"></script>
+    <script src="js/auth.js"></script>
+
+    <!-- ===== 🆕 v6.9: الميزات الجديدة (OCR + الميزان الدوري + Cold-Chain) ===== -->
+    <script src="js/utils/arabic-numbers.js"></script>
+    <script src="js/features/gemini-vision.js"></script>
+    <script src="js/features/stock-card.js"></script>
+    <script src="js/features/stock-card-view.js"></script>
+    <script src="js/features/periodic-balance.js"></script>
+    <script src="js/features/cold-chain.js"></script>
+    <script src="js/features/ocr-receive.js"></script>
+    <script src="js/features/ocr-dispense.js"></script>
+
+    <!-- ===== 🆕 v7.3: التقارير الجديدة (يجب أن تُحمَّل بعد dashboard.js) ===== -->
+    <script src="js/features/reports-v73.js"></script>
+    <script src="js/features/reports-v73-ledger.js"></script>
+    <script src="js/features/reports-v73-advanced.js"></script>
+
+    <!-- ===== Entry Point ===== -->
+    <script src="js/main.js"></script>
+    
+    <!-- ===== 🆕 v6.6: تشغيل ConnectionMonitor بعد تحميل كل شيء ===== -->
+    <script>
+        // تشغيل مراقب الاتصال بعد جاهزية التطبيق
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.ConnectionMonitor) {
+                ConnectionMonitor.start();
+            }
+        });
+        
+        // تحذير قبل إغلاق التبويب إذا كانت توجد مسودة
+        window.addEventListener('beforeunload', (e) => {
+            if (window.DraftManager) {
+                const drafts = DraftManager.listAll();
+                if (drafts.length > 0) {
+                    e.preventDefault();
+                    e.returnValue = `توجد ${drafts.length} مسودة غير محفوظة. هل تريد المغادرة؟`;
+                    return e.returnValue;
+                }
+            }
+        });
+        
+        // مسح المسودات عند تسجيل الخروج
+        window.addEventListener('beforeLogout', () => {
+            if (window.DraftManager) DraftManager.clearAll();
+        });
+    </script>
+</body>
+</html>

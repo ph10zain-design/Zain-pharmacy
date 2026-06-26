@@ -1,0 +1,67 @@
+name: 📊 Build Year Summary
+
+# 🔴 v7.5: بناء /yearSummaries/{dept}-{year} لتسريع التقارير
+# 
+# يعمل تلقائياً:
+#   1. يوم 1 يناير، 4 صباحاً بغداد (1 UTC) → يبني ملخص السنة السابقة كاملة
+#   2. كل يوم أربعاء، 4 صباحاً بغداد (1 UTC) → يحدّث ملخص السنة الحالية (running total)
+#
+# يعمل يدوياً:
+#   - من Actions → "Build Year Summary" → "Run workflow"
+#   - يمكن تحديد target_year لإعادة بناء سنة معيَّنة
+
+on:
+  schedule:
+    # 1 يناير 4 صباحاً بغداد = 1 UTC (يبني السنة السابقة)
+    - cron: '0 1 1 1 *'
+    # كل أربعاء 4 صباحاً بغداد = 1 UTC (يحدّث السنة الحالية)
+    - cron: '0 1 * * 3'
+  workflow_dispatch:
+    inputs:
+      target_year:
+        description: 'السنة المراد بناؤها (مثلاً 2026). فارغ = حسب الجدول'
+        required: false
+        type: string
+      depts:
+        description: 'الأقسام (مفصولة بفاصلة). فارغ = كل الأقسام'
+        required: false
+        type: string
+        default: 'pharmacy,medical_supplies'
+
+jobs:
+  build-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm install --omit=dev
+
+      - name: Determine target year
+        id: target
+        run: |
+          if [ -n "${{ github.event.inputs.target_year }}" ]; then
+            echo "year=${{ github.event.inputs.target_year }}" >> $GITHUB_OUTPUT
+          elif [ "$(date +'%d')" = "01" ] && [ "$(date +'%m')" = "01" ]; then
+            # 1 يناير → السنة السابقة
+            echo "year=$(($(date +%Y) - 1))" >> $GITHUB_OUTPUT
+          else
+            # الأربعاء العادي → السنة الحالية
+            echo "year=$(date +%Y)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build summary
+        working-directory: scripts
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          TARGET_YEAR: ${{ steps.target.outputs.year }}
+          DEPTS: ${{ github.event.inputs.depts || 'pharmacy,medical_supplies' }}
+        run: node build-year-summary.js

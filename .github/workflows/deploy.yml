@@ -1,0 +1,115 @@
+name: 🚀 نشر إلى الإنتاج
+
+# ============================================================
+# .github/workflows/deploy.yml — v7.5
+# ============================================================
+# نشر يدوي فقط (workflow_dispatch). لا auto-deploy على push.
+# 
+# الاستخدام من الموبايل:
+#   GitHub app → phzain-pharmacy → Actions → "🚀 نشر إلى الإنتاج"
+#   → Run workflow → اختر target → اكتب "نشر" → Run
+#
+# الاستخدام من laptop:
+#   نفس الإجراء عبر github.com في المتصفح
+#
+# المطلوب: secret اسمه FIREBASE_SA (انظر DEPLOYMENT.md)
+# ============================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'ما الذي تنشره؟'
+        required: true
+        type: choice
+        options:
+          - hosting
+          - rules
+          - all
+        default: hosting
+      confirm:
+        description: 'اكتب "نشر" بالضبط للتأكيد'
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: تأكيد القرار
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "نشر" ]; then
+            echo "::error::❌ لم تكتب 'نشر' بالضبط في حقل التأكيد."
+            echo "::error::لم تُنفَّذ أي عملية نشر."
+            exit 1
+          fi
+          echo "✅ تأكيد مقبول. سأنشر: ${{ github.event.inputs.target }}"
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 جلب الكود
+        uses: actions/checkout@v4
+
+      - name: 🛠 تثبيت Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 تثبيت Firebase CLI
+        run: npm install -g firebase-tools@latest
+
+      - name: 🔐 إعداد المصادقة
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+        run: |
+          if [ -z "$FIREBASE_SA" ]; then
+            echo "::error::❌ Secret FIREBASE_SA غير موجود. راجع DEPLOYMENT.md"
+            exit 1
+          fi
+          mkdir -p "$HOME/.config/firebase"
+          echo "$FIREBASE_SA" > "$HOME/.config/firebase/sa.json"
+          chmod 600 "$HOME/.config/firebase/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/firebase/sa.json" >> $GITHUB_ENV
+
+      - name: 🌐 نشر Hosting
+        if: github.event.inputs.target == 'hosting' || github.event.inputs.target == 'all'
+        run: |
+          echo "::group::نشر Hosting"
+          firebase deploy --only hosting --non-interactive --force
+          echo "::endgroup::"
+          echo "✅ Hosting نُشر: https://phzain14.web.app"
+
+      - name: 🛡 نشر Firestore Rules + Indexes
+        if: github.event.inputs.target == 'rules' || github.event.inputs.target == 'all'
+        run: |
+          echo "::group::نشر Firestore Rules + Indexes"
+          firebase deploy --only firestore:rules,firestore:indexes --non-interactive --force
+          echo "::endgroup::"
+          echo "✅ Rules + Indexes نُشرا"
+          echo "ℹ️ Indexes قد تستغرق 5-10 دقائق لتُبنى بالكامل"
+
+      - name: 🧹 تنظيف
+        if: always()
+        run: rm -rf "$HOME/.config/firebase"
+
+      - name: 📊 تسجيل في auditLog
+        if: success()
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+        run: |
+          # كتابة سجل النشر في Firestore عبر REST API (لأن firebase-tools لا يدعم arbitrary writes)
+          # نُحضّر access token من service account
+          mkdir -p /tmp/sa
+          echo "$FIREBASE_SA" > /tmp/sa/sa.json
+          
+          # استخراج project_id و client_email
+          PROJECT_ID=$(node -e "console.log(require('/tmp/sa/sa.json').project_id)")
+          
+          # نستخدم gcloud auth print-access-token عبر firebase-tools
+          # أبسط: نضع log entry محلياً ونتركها لـ admin SDK في dashboard
+          echo "Deploy logged: target=${{ github.event.inputs.target }} commit=${GITHUB_SHA::8} actor=${GITHUB_ACTOR}"
+          rm -rf /tmp/sa

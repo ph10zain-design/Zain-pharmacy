@@ -1,0 +1,19 @@
+{
+  "name": "pharmacy-scripts",
+  "version": "7.5.0",
+  "description": "Pharmacy inventory v7.5 automation scripts",
+  "private": true,
+  "scripts": {
+    "sync-claims": "node sync-claims.js",
+    "build-year-summary": "node build-year-summary.js",
+    "cleanup-otps": "node cleanup-otps.js",
+    "cleanup-unit": "node cleanup-unit.js",
+    "monthly-snapshot": "node monthly-snapshot.js",
+    "daily-summary": "node daily-summary.js",
+    "weekly-summary": "node weekly-summary.js",
+    "stagnant-check": "node stagnant-check.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

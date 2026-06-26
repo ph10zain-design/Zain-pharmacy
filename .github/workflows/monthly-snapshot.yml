@@ -1,0 +1,47 @@
+name: 📸 Monthly Balance Snapshot
+
+on:
+  schedule:
+    # آخر يوم من كل شهر، 23:30 بغداد = 20:30 UTC
+    # GitHub لا يدعم "آخر يوم"، نُشغّل آخر 28-31 ونتحقق
+    - cron: '30 20 28-31 * *'
+  workflow_dispatch:
+
+jobs:
+  monthly-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if last day of month
+        id: check
+        run: |
+          # احصل على آخر يوم من الشهر بتوقيت بغداد
+          BAGHDAD_DATE=$(TZ='Asia/Baghdad' date +%d)
+          NEXT_DAY=$(TZ='Asia/Baghdad' date -d 'tomorrow' +%d)
+          if [ "$NEXT_DAY" -lt "$BAGHDAD_DATE" ]; then
+            echo "is_last=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_last=false" >> $GITHUB_OUTPUT
+            echo "ليس آخر يوم في الشهر، تجاهل"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.is_last == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.check.outputs.is_last == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        if: steps.check.outputs.is_last == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: scripts
+        run: npm install --omit=dev
+
+      - name: Save monthly snapshot
+        if: steps.check.outputs.is_last == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: scripts
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+        run: node monthly-snapshot.js

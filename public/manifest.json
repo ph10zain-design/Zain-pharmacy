@@ -1,0 +1,85 @@
+{
+  "name": "مخزون الصيدلية — مستشفى الشطرة العام",
+  "short_name": "مخزون الصيدلية",
+  "description": "نظام إدارة مخزون الصيدلية والمستلزمات الطبية والمختبرية — مستشفى الشطرة العام",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#070c18",
+  "theme_color": "#070c18",
+  "categories": ["medical", "productivity", "business"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "المخزون",
+      "short_name": "المخزون",
+      "description": "عرض المخزون الحالي",
+      "url": "/?section=inventory",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "البطاقات",
+      "short_name": "البطاقات",
+      "description": "بطاقات المواد",
+      "url": "/?section=cards",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "التقارير",
+      "short_name": "التقارير",
+      "description": "التقارير والإحصائيات",
+      "url": "/?section=reports",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "تقدير الحاجة",
+      "short_name": "الحاجة",
+      "description": "تقدير الاحتياج السنوي",
+      "url": "/?section=needs",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

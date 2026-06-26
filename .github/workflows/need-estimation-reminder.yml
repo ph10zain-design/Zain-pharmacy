@@ -1,0 +1,73 @@
+name: 📈 Yearly Need Estimation Reminder
+
+on:
+  schedule:
+    # 1 ديسمبر، 9 صباحاً بغداد = 6 UTC
+    - cron: '0 6 1 12 *'
+  workflow_dispatch:
+
+jobs:
+  need-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm install --omit=dev
+
+      - name: Send reminder
+        working-directory: scripts
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          node -e "
+          const admin = require('firebase-admin');
+          const https = require('https');
+          admin.initializeApp({credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SA))});
+          const db = admin.firestore();
+          const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+          const currentYear = new Date().getFullYear();
+          const targetYear = currentYear + 2;
+          const msg = '<b>📈 تذكير: تقدير الاحتياج السنوي</b>\n\nحان وقت تقدير احتياج <b>' + targetYear + '</b>.\n\nادخل على صفحة 📈 تقدير الحاجة لمراجعة وتصدير القائمة قبل نهاية الشهر.';
+          (async () => {
+            const subs = await db.collection('users').where('telegramEnabled','==',true).where('subscribeReminders','==',true).get();
+            let sent = 0;
+            for (const d of subs.docs) {
+              const chatId = d.data().telegramChatId;
+              if (!chatId) continue;
+              try {
+                await new Promise((res, rej) => {
+                  const data = JSON.stringify({chat_id: chatId, text: msg, parse_mode: 'HTML'});
+                  const req = https.request({hostname:'api.telegram.org',path:'/bot'+TOKEN+'/sendMessage',method:'POST',headers:{'Content-Type':'application/json','Content-Length':data.length}}, (r) => {let b='';r.on('data',c=>b+=c);r.on('end',()=>res(b))});
+                  req.on('error', rej); req.write(data); req.end();
+                });
+                sent++;
+                await new Promise(r => setTimeout(r, 50));
+              } catch (e) { console.warn('failed:', chatId); }
+            }
+            for (const dept of ['pharmacy', 'medical_supplies']) {
+              try {
+                await db.collection('notificationsLog').add({
+                  type: 'need_reminder',
+                  title: '📈 تذكير: تقدير الاحتياج السنوي',
+                  body: msg.replace(/<[^>]*>/g, ''),
+                  dept,
+                  sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                  sentBy: 'github-action:need-reminder',
+                  sent,
+                  readAt: null
+                });
+              } catch {}
+            }
+            console.log('Sent:', sent);
+            process.exit(0);
+          })();
+          "

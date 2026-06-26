@@ -1,0 +1,265 @@
+rules_version = '2';
+
+// ============================================================
+// firestore.rules — v7.5
+// ============================================================
+// 🔴 إصلاحات حرجة في v7.5:
+//   #3 حذف الـ block المكرر لـ /settings/secrets/keys (كان يفتح المفاتيح
+//      لأي مستخدم مسجَّل دخول بدل isStaff فقط)
+//   #4 المستخدم لا يستطيع تغيير حقول الصلاحية الحرجة في وثيقته
+//      (role, disabled, forceLogout, claimSync*) → منع privilege escalation
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // Helper Functions
+    // ========================================
+    function isAuth() {
+      return request.auth != null;
+    }
+    function role() {
+      return isAuth() ? request.auth.token.role : null;
+    }
+    function isAdmin() {
+      return isAuth() && role() == 'admin';
+    }
+    function isStaff() {
+      return isAuth() && (role() == 'admin' || role() == 'staff');
+    }
+    function isViewer() {
+      return isAuth() && (role() == 'admin' || role() == 'staff' || role() == 'viewer');
+    }
+    function notDisabled() {
+      return isAuth() && (request.auth.token.disabled != true);
+    }
+
+    // 🆕 v7.5: helpers لتقييد تعديل حقول الأمان
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    function userSelfUpdateSafe() {
+      // المستخدم لا يستطيع تغيير الحقول التالية في وثيقته:
+      //   - role, disabled, forceLogout → privilege escalation
+      //   - claimSync* → التحايل على المزامنة
+      //   - createdBy/createdAt → تزوير تاريخ الإنشاء
+      //   - disabledAt/disabledBy → إخفاء التعطيل
+      //   - failedLoginAttempts/lockedUntil → التحايل على القفل
+      //   - pendingHardDelete → تحايل على الحذف
+      return !changedKeys().hasAny([
+        'role', 'disabled', 'forceLogout',
+        'claimSyncRequired', 'claimSyncedAt', 'claimSyncedRole', 'claimSyncedDisabled',
+        'createdBy', 'createdByUid', 'createdAt',
+        'disabledAt', 'disabledBy',
+        'failedLoginAttempts', 'lockedUntil',
+        'pendingHardDelete'
+      ]);
+    }
+
+    // ========================================
+    // Users — 🔒 v7.5: حماية الحقول الحرجة
+    // ========================================
+    match /users/{uid} {
+      allow read: if isAuth() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin();
+      // المستخدم يحدّث بياناته الشخصية فقط (الاسم، التفضيلات، الـ FCM tokens)
+      // الـ admin يستطيع تحديث كل شيء
+      allow update: if isAdmin()
+                    || (isAuth() && request.auth.uid == uid && userSelfUpdateSafe());
+      allow delete: if isAdmin();
+    }
+
+    match /deletedUsers/{uid} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ========================================
+    // Departments (inventory, movements, batches, snapshots)
+    // ========================================
+    match /departments/{dept} {
+      allow read: if isViewer() && notDisabled();
+      allow write: if false;
+
+      // Inventory
+      match /inventory/{itemId} {
+        allow read: if isViewer() && notDisabled();
+        allow create: if isStaff() && notDisabled();
+        allow update: if isStaff() && notDisabled();
+        allow delete: if isAdmin() && notDisabled();
+
+        match /batches/{batchId} {
+          allow read: if isViewer() && notDisabled();
+          allow create: if isStaff() && notDisabled();
+          allow update: if isStaff() && notDisabled();
+          allow delete: if isAdmin() && notDisabled();
+        }
+      }
+
+      // Movements (immutable)
+      match /movements/{movId} {
+        allow read: if isViewer() && notDisabled();
+        allow create: if isStaff() && notDisabled();
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // Document References
+      match /documentRefs/{docNo} {
+        allow read: if isViewer() && notDisabled();
+        allow create: if isStaff() && notDisabled();
+        allow update: if isStaff() && notDisabled();
+        allow delete: if isAdmin() && notDisabled();
+      }
+
+      // Balance Snapshots
+      match /balanceSnapshots/{snapshotId} {
+        allow read: if isViewer() && notDisabled();
+        allow create: if isStaff() && notDisabled();
+        allow update: if isAdmin() && notDisabled();
+        allow delete: if false;
+      }
+    }
+
+    // ========================================
+    // Settings — 🔒 v7.5: قواعد بدون تكرار أو تعارض
+    // ========================================
+
+    // 🔴 قاعدة المفاتيح السرية أولاً (الأكثر تحديداً)
+    // VAPID, Gemini API key, Telegram bot token, إلخ
+    // ⚠️ القراءة: isStaff فقط (الـ viewer لا يحتاج المفاتيح)
+    match /settings/secrets/keys/{secretName} {
+      allow read: if isStaff() && notDisabled();
+      allow write: if isAdmin() && notDisabled();
+    }
+
+    // الإعدادات العامة
+    match /settings/general {
+      allow read: if isViewer() && notDisabled();
+      allow write: if isAdmin() && notDisabled();
+    }
+
+    // أي وثيقة أخرى تحت settings (تستثني secrets/keys/* لأن match أعلاه يلتقطها)
+    match /settings/{docId} {
+      allow read: if isViewer() && notDisabled();
+      allow write: if isAdmin() && notDisabled();
+    }
+
+    // ========================================
+    // Year Summaries + Yearly Needs
+    // ========================================
+    match /yearSummaries/{yearKey} {
+      allow read: if isViewer() && notDisabled();
+      // 🔧 v7.5: السماح للـ github-action عبر admin SDK (يتجاوز rules)
+      allow create, update: if isAdmin() && notDisabled();
+      allow delete: if false;
+    }
+
+    match /yearlyNeeds/{yearKey} {
+      allow read: if isStaff() && notDisabled();
+      allow create, update: if isAdmin() && notDisabled();
+      allow delete: if isAdmin() && notDisabled();
+    }
+
+    // ========================================
+    // Ministry Lists
+    // ========================================
+    match /ministryLists/{listId} {
+      allow read: if isViewer() && notDisabled();
+      allow write: if isAdmin() && notDisabled();
+
+      match /items/{itemId} {
+        allow read: if isViewer() && notDisabled();
+        allow write: if isAdmin() && notDisabled();
+      }
+    }
+
+    // ========================================
+    // Audit Log — 🔒 v7.5: منع انتحال هوية الكاتب
+    // ========================================
+    match /auditLog/{id} {
+      allow read: if isAdmin();
+      // المستخدم يكتب باسمه فقط (byUid يجب أن يطابق UID المصادَق)
+      // إذا byUid مفقود: نقبل (للتوافق مع كود قديم لا يضع byUid)
+      allow create: if isAuth() && (
+        !('byUid' in request.resource.data)
+        || request.resource.data.byUid == request.auth.uid
+      );
+      allow update, delete: if false;
+    }
+
+    // ========================================
+    // Error Logs
+    // ========================================
+    match /errorLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false;
+    }
+
+    // ========================================
+    // Notifications
+    // ========================================
+    match /notificationsLog/{id} {
+      allow read: if isViewer() && notDisabled();
+      allow create: if isAuth();
+      allow update: if isStaff() && notDisabled();
+      allow delete: if isAdmin() && notDisabled();
+    }
+
+    // ========================================
+    // Telegram
+    // ========================================
+    match /telegramQueue/{id} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
+    // 🔒 v7.5: OTPs — لا تُقرأ من العميل، فقط من backend admin SDK
+    match /telegramOTPs/{id} {
+      allow read: if false;
+      // المستخدم ينشئ OTP لنفسه فقط
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // ========================================
+    // AI Pending Imports — 🔒 v7.5: تأكيد أن createdBy يطابق المستخدم
+    // ========================================
+    match /aiPendingImports/{id} {
+      allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
+      // كان مفقوداً: التأكُّد من createdBy عند الإنشاء
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // Agent State
+    // ========================================
+    match /agentState/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // Archive
+    // ========================================
+    match /archive/{path=**} {
+      allow read: if isStaff() && notDisabled();
+      allow create: if isAdmin() && notDisabled();
+      allow update, delete: if false;
+    }
+
+    // ========================================
+    // Default: deny everything
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
